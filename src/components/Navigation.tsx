@@ -1,6 +1,6 @@
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { LogOut, LayoutDashboard } from 'lucide-react';
+import { LogOut, LayoutDashboard, Shield } from 'lucide-react';
 
 export default function Navigation() {
   const location = useLocation();
@@ -77,6 +77,19 @@ export default function Navigation() {
                   <LayoutDashboard size={16} />
                   <span className="text-sm font-medium">DASHBOARD</span>
                 </Link>
+                {user && (
+                  <Link
+                    to="/admin"
+                    className={`flex items-center space-x-2 px-4 py-2 rounded-lg transition-all duration-300 transform hover:scale-105 ${
+                      isActive('/admin')
+                        ? 'text-purple-400 bg-purple-500/20'
+                        : 'text-gray-300 hover:text-white hover:bg-gray-800'
+                    }`}
+                  >
+                    <Shield size={16} />
+                    <span className="text-sm font-medium">ADMIN</span>
+                  </Link>
+                )}
                 <button
                   onClick={handleLogout}
                   className="flex items-center space-x-2 px-4 py-2 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-lg hover:from-red-600 hover:to-red-700 transition-all duration-300 transform hover:scale-105"

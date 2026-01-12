@@ -36,6 +36,8 @@ export default function AdminPanel() {
   const [banEmail, setBanEmail] = useState('');
   const [banReason, setBanReason] = useState('');
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedUser, setSelectedUser] = useState<any>(null);
 
   useEffect(() => {
     loadData();
@@ -176,6 +178,40 @@ export default function AdminPanel() {
     setTimeout(() => setCopiedKey(null), 2000);
   };
 
+  const loadUserDetails = async (userId: string) => {
+    try {
+      const { data: profileData } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', userId)
+        .maybeSingle();
+
+      const { data: keyData } = await supabase
+        .from('user_licenses')
+        .select('access_key, is_active, created_at')
+        .eq('user_id', userId)
+        .maybeSingle();
+
+      const { data: redeemedKey } = await supabase
+        .from('access_keys')
+        .select('key')
+        .eq('redeemed_by', userId)
+        .maybeSingle();
+
+      setSelectedUser({
+        ...profileData,
+        license: keyData,
+        redeemedKey: redeemedKey?.key,
+      });
+    } catch (error) {
+      console.error('Error loading user details:', error);
+    }
+  };
+
+  const filteredUsers = users.filter(user =>
+    user.email.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
   if (!isOwner) {
     return (
       <div className="relative min-h-screen bg-black text-white flex items-center justify-center">
@@ -238,35 +274,98 @@ export default function AdminPanel() {
           </div>
 
           {activeTab === 'users' && (
-            <div className="bg-gradient-to-br from-gray-900 to-gray-800 rounded-3xl p-8 border border-cyan-500/30">
-              <h2 className="text-2xl font-bold mb-6">Logged in Users</h2>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-gray-700">
-                      <th className="text-left py-3 px-4">Email</th>
-                      <th className="text-left py-3 px-4">Created</th>
-                      <th className="text-left py-3 px-4">Status</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {users.map((user) => (
-                      <tr key={user.id} className="border-b border-gray-700 hover:bg-gray-700/50">
-                        <td className="py-3 px-4">{user.email}</td>
-                        <td className="py-3 px-4 text-gray-400">
-                          {new Date(user.created_at).toLocaleDateString()}
-                        </td>
-                        <td className="py-3 px-4">
-                          <span className="px-3 py-1 bg-green-500/20 text-green-400 rounded-full text-xs font-semibold">
-                            ACTIVE
-                          </span>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+              <div className="lg:col-span-2">
+                <div className="bg-gradient-to-br from-gray-900 to-gray-800 rounded-3xl p-8 border border-cyan-500/30">
+                  <h2 className="text-2xl font-bold mb-6">Search Users</h2>
+                  <div className="mb-6">
+                    <input
+                      type="text"
+                      placeholder="Search by email..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="w-full px-4 py-3 bg-gray-900/50 border border-gray-700 rounded-lg focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/20 transition-all duration-300 outline-none text-white"
+                    />
+                  </div>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b border-gray-700">
+                          <th className="text-left py-3 px-4">Email</th>
+                          <th className="text-left py-3 px-4">Created</th>
+                          <th className="text-left py-3 px-4">Action</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {filteredUsers.map((user) => (
+                          <tr key={user.id} className="border-b border-gray-700 hover:bg-gray-700/50">
+                            <td className="py-3 px-4">{user.email}</td>
+                            <td className="py-3 px-4 text-gray-400">
+                              {new Date(user.created_at).toLocaleDateString()}
+                            </td>
+                            <td className="py-3 px-4">
+                              <button
+                                onClick={() => loadUserDetails(user.id)}
+                                className="px-3 py-1 bg-cyan-500/20 text-cyan-400 rounded-full text-xs font-semibold hover:bg-cyan-500/30 transition-colors"
+                              >
+                                VIEW
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                  <p className="text-gray-400 mt-4">Found Users: {filteredUsers.length}</p>
+                </div>
               </div>
-              <p className="text-gray-400 mt-4">Total Users: {users.length}</p>
+
+              {selectedUser && (
+                <div className="bg-gradient-to-br from-gray-900 to-gray-800 rounded-3xl p-8 border border-cyan-500/30 h-fit">
+                  <h3 className="text-2xl font-bold mb-6">User Details</h3>
+                  <div className="space-y-4">
+                    <div>
+                      <p className="text-gray-400 text-sm">Email</p>
+                      <p className="text-white font-bold">{selectedUser.email}</p>
+                    </div>
+                    <div>
+                      <p className="text-gray-400 text-sm">Created At</p>
+                      <p className="text-white font-bold">
+                        {new Date(selectedUser.created_at).toLocaleDateString()} {new Date(selectedUser.created_at).toLocaleTimeString()}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-gray-400 text-sm">License Status</p>
+                      <p className={`font-bold ${selectedUser.license?.is_active ? 'text-green-400' : 'text-red-400'}`}>
+                        {selectedUser.license?.is_active ? 'ACTIVE' : 'INACTIVE'}
+                      </p>
+                    </div>
+                    {selectedUser.redeemedKey && (
+                      <div>
+                        <p className="text-gray-400 text-sm">Redeemed Key</p>
+                        <p className="text-cyan-400 font-mono break-all">{selectedUser.redeemedKey}</p>
+                      </div>
+                    )}
+                    <div className="pt-4 border-t border-gray-700">
+                      <button
+                        onClick={() => {
+                          setBanEmail(selectedUser.email);
+                          setActiveTab('bans');
+                        }}
+                        className="w-full px-4 py-2 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-lg font-bold hover:from-red-600 hover:to-red-700 transition-all duration-300"
+                      >
+                        Ban User
+                      </button>
+                    </div>
+                    <button
+                      onClick={() => setSelectedUser(null)}
+                      className="w-full px-4 py-2 bg-gray-700 text-white rounded-lg font-bold hover:bg-gray-600 transition-all duration-300"
+                    >
+                      Close
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
